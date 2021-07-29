@@ -1,0 +1,78 @@
+; The Multilevel Group Selection I (MGS I) v2.0
+
+; General variables.
+globals
+[ percent-of-contributors     ; The current percent of agents that are contributors.
+  effort ]                    ; Agents need effort to provide prosocial common-pool behavior and withstand pressure. The constant sets a limit to how much prosocial common-pool behavior an agent can contribute in a group and there is a 1:1 relationship between the two.
+
+; Agent-specific variables.
+turtles-own
+[ contribution ]              ; A dynamic categorical (effort or 0) variable indicating the amount an agent contributes to a group.
+
+; Initialize the model with the parameter settings in the user interface.
+to setup
+  clear-all
+  set effort 1
+  ask patches
+  [ set pcolor black
+    if count turtles < ( density * 4 * max-pxcor * max-pycor ) [ sprout 1 [set size 1] ] ] ; Use the number of patches and density to distribute agents.
+  ask turtles
+  [ ifelse count turtles with [ contribution = effort ] < ( initial-percent-of-contributors / 100 * count turtles ) ; Use the initial percent of contributors to assign initial agent type.
+    [ set color orange
+      set contribution effort ]
+    [ set color blue
+      set contribution 0 ] ]
+  set-default-shape turtles "square"
+  set percent-of-contributors (count turtles with [contribution = effort]  / count turtles) * 100
+  reset-ticks
+end
+
+; Simulate the sequence of processes, until either the number of contributors reaches 0 or all agents become contributors.
+to go
+  potentially-moving
+  potentially-changing-behavior
+  update-globals
+  if count turtles with [ contribution = effort ] = 0 or
+    count turtles with [ contribution = effort ] = count turtles
+    [ stop ]
+  tick
+end
+
+; Agents who are not able to withstand pressure move to one of the closest spots.
+to potentially-moving
+  ask turtles
+  [ ifelse contribution = effort
+    [ if ( synergy * effort * count turtles in-radius 1.5 with [ contribution = effort ] / count turtles in-radius 1.5 ) <= pressure
+      [ move-to min-one-of patches with [ not any? turtles-here ] [ distance myself ] ] ]
+    [ if ( effort + synergy * effort * count turtles in-radius 1.5 with [ contribution = effort ] / count turtles in-radius 1.5 ) <= pressure
+      [ move-to min-one-of patches with [ not any? turtles-here ] [ distance myself ] ] ] ]
+end
+
+; Agents who are not able to withstand pressure change their begavior.
+to potentially-changing-behavior
+  ask turtles
+  [ ifelse ( count turtles in-radius 1.5 = 1 )
+    [ if ( effort <= pressure )
+      [ ifelse color = orange
+        [ set color blue
+          set contribution 0 ]
+        [ set color orange
+          set contribution effort ] ] ]
+    [ ifelse ( contribution = effort )
+      [ if ( synergy * effort * count turtles in-radius 1.5 with [ contribution = effort ] /
+          count turtles in-radius 1.5 <= pressure )
+        [ set color blue
+          set contribution 0 ] ]
+      [ if ( effort + synergy * effort * count turtles in-radius 1.5 with [ contribution = effort ] /
+          count turtles in-radius 1.5 <= pressure )
+        [ set color orange
+          set contribution effort ] ] ] ]
+end
+
+; Update global variables.
+to update-globals
+  set percent-of-contributors count turtles with [ contribution = effort ] / count turtles * 100
+end
+
+; Copyright 2021 Garry Sotnik, Thaddeus Shannon, and Wayne Wakeland
+; See end of Info tab for full copyright and license.
